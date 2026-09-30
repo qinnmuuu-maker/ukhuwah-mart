@@ -416,9 +416,51 @@
         padding: 12px 8px;
       }
     }
-  
+
     @media (max-width: 768px) { table { display:block; overflow-x:auto; white-space:nowrap; } .card { padding:15px; } }
   </style>
+
+<style>
+.laporan-filter-controls {
+  display: grid;
+  grid-template-columns: minmax(150px, 1fr) minmax(160px, 1fr) auto auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.laporan-filter-controls label {
+  display: inline-block;
+  margin-bottom: 5px;
+}
+
+.laporan-filter-controls select,
+.laporan-filter-controls input {
+  width: 100%;
+  min-height: 42px;
+  box-sizing: border-box;
+}
+
+.laporan-filter-controls button {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .laporan-filter-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .laporan-filter-controls button {
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .laporan-filter-controls {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
 </head>
 
 <body>
@@ -871,7 +913,92 @@
               </tr>
             </thead>
 
-            <tbody id="tabelLaporan"></tbody>
+
+<div class="card" style="margin: 16px 0;">
+  <h3>📊 Laporan Transaksi</h3>
+
+  <div class="laporan-filter-controls">
+
+    <div>
+      <label for="jenisLaporan">
+        <strong>Jenis Laporan</strong>
+      </label>
+      <br>
+      <select id="jenisLaporan" onchange="ubahJenisLaporan()">
+        <option value="harian">📅 Harian</option>
+        <option value="bulanan">📆 Bulanan</option>
+      </select>
+    </div>
+
+    <div id="filterLaporanHarian">
+      <label for="tanggalLaporan">
+        <strong>Tanggal</strong>
+      </label>
+      <br>
+      <input
+        type="date"
+        id="tanggalLaporan"
+        onchange="renderLaporanTerfilter()"
+      >
+    </div>
+
+    <div id="filterLaporanBulanan" style="display:none;">
+      <label for="bulanLaporan">
+        <strong>Bulan</strong>
+      </label>
+      <br>
+      <input
+        type="month"
+        id="bulanLaporan"
+        onchange="renderLaporanTerfilter()"
+      >
+    </div>
+
+    <button
+      type="button"
+      class="btn btn-primary"
+      onclick="renderLaporanTerfilter()">
+      🔍 Tampilkan
+    </button>
+
+    <button
+      type="button"
+      class="btn btn-success"
+      onclick="exportLaporanTerfilter()">
+      📥 Export Excel
+    </button>
+
+  </div>
+
+  <div style="
+    display:grid;
+    grid-template-columns:repeat(2,minmax(150px,1fr));
+    gap:12px;
+    margin-top:16px;
+  ">
+
+    <div class="card">
+      <strong>Jumlah Transaksi</strong>
+      <div
+        id="laporanJumlahTransaksi"
+        style="font-size:24px;font-weight:bold;">
+        0
+      </div>
+    </div>
+
+    <div class="card">
+      <strong>Total Penjualan</strong>
+      <div
+        id="laporanTotalPenjualan"
+        style="font-size:24px;font-weight:bold;">
+        Rp0
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<tbody id="tabelLaporan"></tbody>
           </table>
         </div>
       </div>
@@ -2903,7 +3030,183 @@ if (!auth.currentUser || auth.currentUser.uid !== user.uid) {
     }
 
 
-    function renderLaporanTables() {
+
+function tanggalTransaksiLaporan(timestamp) {
+  if (!timestamp) return null;
+
+  try {
+    if (timestamp.toDate) return timestamp.toDate();
+    if (timestamp instanceof Date) return timestamp;
+
+    const d = new Date(timestamp);
+    return isNaN(d.getTime()) ? null : d;
+  } catch (e) {
+    return null;
+  }
+}
+
+function tanggalISO(date) {
+  if (!date) return "";
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+}
+
+function bulanISO(date) {
+  if (!date) return "";
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0")
+  ].join("-");
+}
+
+function ubahJenisLaporan() {
+  const jenis = document.getElementById("jenisLaporan")?.value || "harian";
+
+  const harian = document.getElementById("filterLaporanHarian");
+  const bulanan = document.getElementById("filterLaporanBulanan");
+
+  if (harian) {
+    harian.style.display = jenis === "harian" ? "block" : "none";
+  }
+
+  if (bulanan) {
+    bulanan.style.display = jenis === "bulanan" ? "block" : "none";
+  }
+
+  renderLaporanTerfilter();
+}
+
+function ambilLaporanTerfilter() {
+  const jenis = document.getElementById("jenisLaporan")?.value || "harian";
+
+  const tanggal =
+    document.getElementById("tanggalLaporan")?.value || "";
+
+  const bulan =
+    document.getElementById("bulanLaporan")?.value || "";
+
+  return laporanPenjualan.filter(transaksi => {
+    const date = tanggalTransaksiLaporan(transaksi.Timestamp);
+
+    if (!date) return false;
+
+    if (jenis === "harian") {
+      return tanggalISO(date) === tanggal;
+    }
+
+    return bulanISO(date) === bulan;
+  });
+}
+
+function renderLaporanTerfilter() {
+  const data = ambilLaporanTerfilter();
+
+  const jumlah = document.getElementById("laporanJumlahTransaksi");
+  const total = document.getElementById("laporanTotalPenjualan");
+  const tbody = document.getElementById("tabelLaporan");
+
+  if (jumlah) {
+    jumlah.textContent = data.length.toLocaleString("id-ID");
+  }
+
+  const totalPenjualan = data.reduce(
+    (sum, transaksi) => sum + (Number(transaksi.Total) || 0),
+    0
+  );
+
+  if (total) {
+    total.textContent = rupiah(totalPenjualan);
+  }
+
+  if (!tbody) return;
+
+  if (data.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="empty-state">
+          Tidak ada transaksi pada periode yang dipilih.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tbody.innerHTML = data.map(l => `
+    <tr>
+      <td>${escapeHtml(formatTanggal(l.Timestamp))}</td>
+      <td>${escapeHtml(l.Kasir || "-")}</td>
+      <td>${formatItems(l.Items)}</td>
+      <td>${rupiah(l.Total)}</td>
+      <td>${rupiah(l.Bayar)}</td>
+      <td>${rupiah(l.Kembalian)}</td>
+    </tr>
+  `).join("");
+}
+
+function exportLaporanTerfilter() {
+  if (!userIsAdmin()) {
+    alert(
+      "⛔ Akses ditolak: Hanya Admin yang dapat melakukan export laporan."
+    );
+    return;
+  }
+
+  const data = ambilLaporanTerfilter();
+
+  if (data.length === 0) {
+    alert("⚠️ Tidak ada transaksi pada periode yang dipilih.");
+    return;
+  }
+
+  const jenis =
+    document.getElementById("jenisLaporan")?.value || "harian";
+
+  const tanggal =
+    document.getElementById("tanggalLaporan")?.value || "";
+
+  const bulan =
+    document.getElementById("bulanLaporan")?.value || "";
+
+  const dataExport = data.map(l => ({
+    "Waktu Transaksi": formatTanggal(l.Timestamp),
+    "Kasir": l.Kasir || "-",
+    "Daftar Barang": Array.isArray(l.Items)
+      ? l.Items.map(item => {
+          if (item && typeof item === "object") {
+            return `${item.nama || "-"} x${Number(item.qty) || 0}`;
+          }
+
+          return String(item);
+        }).join("; ")
+      : "",
+    "Total Belanja (Rp)": Number(l.Total) || 0,
+    "Uang Bayar (Rp)": Number(l.Bayar) || 0,
+    "Kembalian (Rp)": Number(l.Kembalian) || 0
+  }));
+
+  const worksheet = XLSX.utils.json_to_sheet(dataExport);
+  const workbook = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(
+    workbook,
+    worksheet,
+    jenis === "harian"
+      ? "Laporan Harian"
+      : "Laporan Bulanan"
+  );
+
+  const namaFile =
+    jenis === "harian"
+      ? `Laporan_Harian_${tanggal}.xlsx`
+      : `Laporan_Bulanan_${bulan}.xlsx`;
+
+  XLSX.writeFile(workbook, namaFile);
+}
+
+function renderLaporanTables() {
       const tbody =
         document.getElementById("tabelLaporan");
 
