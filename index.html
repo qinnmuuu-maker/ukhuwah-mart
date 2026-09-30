@@ -1611,7 +1611,7 @@ if (!auth.currentUser || auth.currentUser.uid !== user.uid) {
 
       if (role === "kasir") {
         btnBarang.classList.add("disabled");
-        btnLaporan.classList.add("disabled");
+        btnLaporan.classList.remove("disabled");
         btnKaryawan.classList.add("disabled");
         btnInventori.classList.add("disabled");
 
@@ -1647,9 +1647,9 @@ if (!auth.currentUser || auth.currentUser.uid !== user.uid) {
       if (
         currentUser &&
         String(currentUser.role || "kasir").toLowerCase() === "kasir" &&
-        tabId !== "tab-pos"
+        !["tab-pos", "tab-laporan"].includes(tabId)
       ) {
-        alert("⛔ Akses Ditolak: Fitur ini hanya untuk Admin.");
+        alert("⛔ Akses Ditolak: Fitur ini hanya tersedia untuk Admin.");
         return;
       }
 
