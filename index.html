@@ -1082,6 +1082,66 @@
     }
 
 
+async function prosesLogin(e) {
+  e.preventDefault();
+
+  const email = document.getElementById("loginEmail").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  const btn = document.getElementById("btnLogin");
+
+  if (!email || !password) {
+    tampilStatusLogin("Email dan password wajib diisi.", "error");
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = "⏳ Memverifikasi...";
+  tampilStatusLogin("Memverifikasi akun...", "success");
+
+  try {
+    await auth.signInWithEmailAndPassword(email, password);
+    tampilStatusLogin("Login berhasil. Memuat profil...", "success");
+  } catch (err) {
+    console.error("Login gagal:", err);
+
+    let pesan = "Login gagal.";
+
+    switch (err.code) {
+      case "auth/invalid-credential":
+      case "auth/wrong-password":
+      case "auth/user-not-found":
+        pesan = "Email atau password salah.";
+        break;
+      case "auth/invalid-email":
+        pesan = "Format email tidak valid.";
+        break;
+      case "auth/too-many-requests":
+        pesan = "Terlalu banyak percobaan login. Coba lagi nanti.";
+        break;
+      case "auth/network-request-failed":
+        pesan = "Koneksi internet bermasalah.";
+        break;
+      default:
+        pesan = err.message || pesan;
+    }
+
+    tampilStatusLogin("❌ " + pesan, "error");
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Masuk Aplikasi";
+  }
+}
+
+
+async function prosesLogout() {
+  try {
+    await auth.signOut();
+  } catch (err) {
+    console.error("Logout gagal:", err);
+    alert("❌ Logout gagal: " + err.message);
+  }
+}
+
     /* =====================================================
        AUTH / LOGIN ROBUST
     ===================================================== */
@@ -1151,6 +1211,10 @@
         "Akun pengguna sedang tidak aktif."
       );
     }
+
+if (!auth.currentUser || auth.currentUser.uid !== user.uid) {
+  return;
+}
 
     // Profil valid
     currentUser = {
@@ -3096,14 +3160,17 @@
             );
 
 
-        await db
-          .collection("pengguna")
-          .doc(res.user.uid)
-          .set({
-            nama: nama,
-            email: email,
-            role: role
-          });
+await db
+  .collection("pengguna")
+  .doc(res.user.uid)
+  .set({
+    nama: nama,
+    email: email,
+    role: role,
+    aktif: true,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    createdBy: currentUser.uid
+  });
 
 
         await secondaryAuth.signOut();
@@ -3317,6 +3384,60 @@
         tutupKameraScanner();
       }
     });
+
+============================================================
+LISTENER AUTH
+===========================================================
+
+auth.onAuthStateChanged(async (user) => {
+  console.log(
+    "Auth state berubah:",
+    user ? user.uid : "tidak login"
+  );
+
+  if (!user) {
+    currentUser = null;
+    authFlowUid = null;
+    profileRequestUid = null;
+
+    hentikanFirestoreListeners();
+
+    keranjang = [];
+    transaksiSedangDiproses = false;
+
+    cekSesiLogin();
+
+    const btn = document.getElementById("btnLogin");
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Masuk Aplikasi";
+    }
+
+    return;
+  }
+
+  // Jangan proses UID yang sama berulang kali.
+  if (authFlowUid === user.uid && currentUser) {
+    return;
+  }
+
+  authFlowUid = user.uid;
+  profileRequestUid = null;
+
+  // Jangan memberikan akses sebelum profil Firestore diverifikasi.
+  currentUser = null;
+
+  const loginModal = document.getElementById("loginModal");
+  if (loginModal) loginModal.style.display = "flex";
+
+  tampilStatusLogin(
+    "⏳ Memverifikasi profil dan hak akses...",
+    "success"
+  );
+
+  await muatProfilPengguna(user);
+});
+
   </script>
 
 </body>
