@@ -2841,8 +2841,7 @@ if (!auth.currentUser || auth.currentUser.uid !== user.uid) {
           }
           const sesudah = sebelum - qty;
           transaction.update(ref, {
-            Stok: sesudah,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            Stok: sesudah
           });
 
           await catatPergerakanStok(transaction, {
