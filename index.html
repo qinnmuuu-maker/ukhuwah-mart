@@ -430,7 +430,7 @@
 
       <div id="loginStatus" class="status-box"></div>
 
-      <form onsubmit="prosesLogin(event)">
+      <form id="loginForm">
         <div class="form-group" style="text-align:left;">
           <label>Email Pengguna:</label>
           <input
@@ -1132,6 +1132,14 @@ async function prosesLogin(e) {
   }
 }
 
+// Memasang event login secara eksplisit
+window.addEventListener("DOMContentLoaded", function () {
+  const loginForm = document.getElementById("loginForm");
+
+  if (loginForm) {
+    loginForm.addEventListener("submit", prosesLogin);
+  }
+});
 
 async function prosesLogout() {
   try {
