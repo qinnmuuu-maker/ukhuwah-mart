@@ -37,25 +37,13 @@ service cloud.firestore {
 
       allow create, delete: if isAdmin();
 
-      allow update: if isAdmin()
-        || (
-          isKasir()
-          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(["Stok"])
-          && request.resource.data.Stok is number
-          && request.resource.data.Stok >= 0
-        );
+      allow update: if isAdmin();
     }
 
     match /penjualan/{id} {
       allow read: if isAdminOrKasir();
 
-      allow create: if isAdminOrKasir()
-        && request.resource.data.KasirUID == request.auth.uid
-        && request.resource.data.Total is number
-        && request.resource.data.Bayar is number
-        && request.resource.data.Kembalian is number;
-
-      allow update, delete: if false;
+      allow create, update, delete: if false;
     }
 
     match /riwayat_stok/{id} {

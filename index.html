@@ -9,12 +9,13 @@
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-functions-compat.js"></script>
 
   <!-- Excel / CSV -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 
   <!-- Barcode / QR Scanner -->
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8"></script>
 
   <!-- Print.js -->
   <script src="https://printjs-4de6.kxcdn.com/print.min.js"></script>
@@ -34,6 +35,7 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
     const auth = firebase.auth();
+    const functions = firebase.app().functions("asia-southeast2");
   </script>
 
   <style>
@@ -610,6 +612,7 @@
               class="form-control"
               placeholder="0"
               min="0"
+              step="1"
               inputmode="numeric"
               oninput="hitungKembalian()">
           </div>
@@ -912,6 +915,10 @@
                 <th>Kembalian</th>
               </tr>
             </thead>
+            <tbody id="tabelLaporan"></tbody>
+          </table>
+        </div>
+      </div>
 
 
 <div class="card" style="margin: 16px 0;">
@@ -997,11 +1004,6 @@
 
   </div>
 </div>
-
-<tbody id="tabelLaporan"></tbody>
-          </table>
-        </div>
-      </div>
     </section>
 
     <!-- ================================================= -->
@@ -1165,6 +1167,7 @@
 
     let riwayatStok = [];
     let transaksiSedangDiproses = false;
+    let pendingSaleId = null;
 
 
     /* =====================================================
@@ -1747,6 +1750,8 @@ if (!auth.currentUser || auth.currentUser.uid !== user.uid) {
 
 
     function tambahItemInputPOS() {
+      if (transaksiSedangDiproses) return;
+
       if (!currentUser) {
         alert("Silakan login terlebih dahulu.");
         return;
@@ -1811,6 +1816,8 @@ if (!auth.currentUser || auth.currentUser.uid !== user.uid) {
         });
       }
 
+      pendingSaleId = null;
+
 
       input.value = "";
       renderKeranjang();
@@ -1819,10 +1826,13 @@ if (!auth.currentUser || auth.currentUser.uid !== user.uid) {
 
 
     function ubahQty(id, delta) {
+      if (transaksiSedangDiproses) return;
+
       const item =
         keranjang.find(k => k.id === id);
 
       if (!item) return;
+  pendingSaleId = null;
 
 
       if (delta > 0) {
@@ -1858,6 +1868,9 @@ if (!auth.currentUser || auth.currentUser.uid !== user.uid) {
 
 
     function hapusItemKeranjang(id) {
+      if (transaksiSedangDiproses) return;
+
+      pendingSaleId = null;
       keranjang =
         keranjang.filter(k => k.id !== id);
 
@@ -1977,9 +1990,6 @@ if (!auth.currentUser || auth.currentUser.uid !== user.uid) {
       }
 
 
-      const total =
-        getTotalBelanja();
-
       const bayar =
         Number(document.getElementById("inputBayar").value) || 0;
 
@@ -1990,19 +2000,8 @@ if (!auth.currentUser || auth.currentUser.uid !== user.uid) {
       }
 
 
-      if (bayar < total) {
-        alert("⚠️ Pembayaran kurang!");
-        return;
-      }
-
-
       const snapshotCart =
         keranjang.map(item => ({ ...item }));
-
-
-      const kembalian =
-        bayar - total;
-
 
       const button =
         document.getElementById("btnSelesaikanTransaksi");
@@ -2013,129 +2012,30 @@ if (!auth.currentUser || auth.currentUser.uid !== user.uid) {
 
 
       try {
-        await db.runTransaction(async (transaction) => {
-
-          /*
-            Firestore transaction:
-            SEMUA READ dilakukan terlebih dahulu,
-            baru kemudian WRITE.
-          */
-
-          const productDocs = [];
-
-
-          for (const item of snapshotCart) {
-            const ref =
-              db.collection("produk").doc(item.id);
-
-            const doc =
-              await transaction.get(ref);
-
-            productDocs.push({
-              item,
-              ref,
-              doc
-            });
-          }
-
-
-          for (const data of productDocs) {
-            if (!data.doc.exists) {
-              throw new Error(
-                `Barang "${data.item.nama}" tidak ditemukan di database.`
-              );
-            }
-
-
-            const produk =
-              data.doc.data();
-
-            const stokSekarang =
-              Number(produk.Stok) || 0;
-
-
-            if (stokSekarang < data.item.qty) {
-              throw new Error(
-                `Stok "${data.item.nama}" tidak mencukupi. ` +
-                `Sisa stok: ${stokSekarang}.`
-              );
-            }
-          }
-
-
-          const notaRef =
-            db.collection("penjualan").doc();
-
-
-          const itemsSnapshot =
-            snapshotCart.map(item => ({
-              id: item.id,
-              kode: item.kode || "",
-              nama: item.nama,
-              harga: Number(item.harga) || 0,
-              qty: Number(item.qty) || 0,
-              subtotal:
-                (Number(item.harga) || 0) *
-                (Number(item.qty) || 0)
-            }));
-
-
-          transaction.set(notaRef, {
-            Kasir:
-              currentUser.nama ||
-              currentUser.email ||
-              "Kasir",
-
-            KasirUID:
-              currentUser.uid,
-
-            Items:
-              itemsSnapshot,
-
-            Total:
-              total,
-
-            Bayar:
-              bayar,
-
-            Kembalian:
-              kembalian,
-
-            Timestamp:
-              firebase.firestore.FieldValue.serverTimestamp()
-          });
-
-
-          for (const data of productDocs) {
-            transaction.update(
-              data.ref,
-              {
-                Stok:
-                  firebase.firestore.FieldValue.increment(
-                    -data.item.qty
-                  )
-              }
-            );
-          }
+        pendingSaleId = pendingSaleId || db.collection("penjualan").doc().id;
+        const completeSale = functions.httpsCallable("completeSale");
+        const response = await completeSale({
+          requestId: pendingSaleId,
+          items: snapshotCart.map(item => ({
+            productId: item.id,
+            qty: item.qty
+          })),
+          bayar
         });
-
-
-        /*
-          Setelah transaction berhasil,
-          siapkan dan cetak struk.
-        */
+        const sale = response.data;
 
         isiDataStruk(
-          total,
-          bayar,
-          kembalian,
-          snapshotCart
+          sale.total,
+          sale.bayar,
+          sale.kembalian,
+          sale.items
         );
 
         cetakStruk();
 
 
         keranjang = [];
+        pendingSaleId = null;
 
         document.getElementById("inputBayar").value = "";
 
@@ -2379,8 +2279,13 @@ if (!auth.currentUser || auth.currentUser.uid !== user.uid) {
       }
 
 
-      if (hargaJual < 0 || hargaBeli < 0 || stok < 0) {
-        alert("Nilai harga/stok tidak boleh negatif.");
+      if (
+        !Number.isSafeInteger(hargaJual) ||
+        !Number.isSafeInteger(hargaBeli) ||
+        !Number.isSafeInteger(stok) ||
+        hargaJual < 0 || hargaBeli < 0 || stok < 0
+      ) {
+        alert("Harga dan stok harus berupa angka bulat nonnegatif.");
         return;
       }
 
@@ -2502,104 +2407,62 @@ if (!auth.currentUser || auth.currentUser.uid !== user.uid) {
         }
 
 
-        const chunkSize = 450;
-        let jumlahBerhasil = 0;
-
-
-        for (
-          let i = 0;
-          i < jsonResult.length;
-          i += chunkSize
-        ) {
-          const chunk =
-            jsonResult.slice(i, i + chunkSize);
-
-          const batch =
-            db.batch();
-
-
-          chunk.forEach(row => {
-
-            const kode =
-              String(
-                row["Kode"] ??
-                row["Kode / Barcode"] ??
-                row["Barcode"] ??
-                ""
-              ).trim();
-
-
-            const nama =
-              String(
-                row["Nama Barang"] ??
-                row["Nama"] ??
-                row["Name"] ??
-                ""
-              ).trim();
-
-
-            const hargaBeli =
-              Number(
-                row["Harga Beli"] ??
-                row["HargaBeli"] ??
-                0
-              ) || 0;
-
-
-            const hargaJual =
-              Number(
-                row["Harga Jual"] ??
-                row["HargaJual"] ??
-                row["Harga"] ??
-                0
-              ) || 0;
-
-
-            const stok =
-              Number(
-                row["Stok"] ??
-                row["Qty"] ??
-                0
-              ) || 0;
-
-
-            const kategori =
-              String(
-                row["Kategori"] ??
-                row["Category"] ??
-                "Umum"
-              ).trim();
-
-
-            if (!nama) return;
-
-
-            const docRef =
-              db.collection("produk").doc();
-
-
-            batch.set(docRef, {
-              Kode: kode,
-              "Nama Barang": nama,
-              "Harga Beli": hargaBeli,
-              "Harga Jual": hargaJual,
-              Stok: stok,
-              Kategori: kategori || "Umum"
-            });
-
-
-            jumlahBerhasil++;
-          });
-
-
-          if (jumlahBerhasil > 0) {
-            await batch.commit();
-          }
+        if (jsonResult.length > 450) {
+          throw new Error("Maksimal 450 baris per impor agar seluruh data tersimpan atomik.");
         }
+
+        const existingCodes = new Set(
+          produkList.map(product => normalisasi(product.Kode)).filter(Boolean)
+        );
+        const importedCodes = new Set();
+        const rows = jsonResult.map((row, index) => {
+          const kode = String(
+            row["Kode"] ?? row["Kode / Barcode"] ?? row["Barcode"] ?? ""
+          ).trim();
+          const nama = String(
+            row["Nama Barang"] ?? row["Nama"] ?? row["Name"] ?? ""
+          ).trim();
+          const kategori = String(
+            row["Kategori"] ?? row["Category"] ?? "Umum"
+          ).trim();
+          const parseInteger = (value, label) => {
+            const parsed = Number(value ?? 0);
+            if (!Number.isSafeInteger(parsed) || parsed < 0) {
+              throw new Error(`Baris ${index + 2}: ${label} harus berupa angka bulat nonnegatif.`);
+            }
+            return parsed;
+          };
+
+          if (!nama) {
+            throw new Error(`Baris ${index + 2}: nama barang wajib diisi.`);
+          }
+          if (kode) {
+            const normalizedCode = normalisasi(kode);
+            if (existingCodes.has(normalizedCode) || importedCodes.has(normalizedCode)) {
+              throw new Error(`Baris ${index + 2}: barcode ${kode} sudah digunakan.`);
+            }
+            importedCodes.add(normalizedCode);
+          }
+
+          return {
+            Kode: kode,
+            "Nama Barang": nama,
+            "Harga Beli": parseInteger(row["Harga Beli"] ?? row["HargaBeli"], "Harga beli"),
+            "Harga Jual": parseInteger(row["Harga Jual"] ?? row["HargaJual"] ?? row["Harga"], "Harga jual"),
+            Stok: parseInteger(row["Stok"] ?? row["Qty"], "Stok"),
+            Kategori: kategori || "Umum"
+          };
+        });
+
+        const batch = db.batch();
+        rows.forEach(row => {
+          batch.set(db.collection("produk").doc(), row);
+        });
+        await batch.commit();
 
 
         alert(
-          `✅ Berhasil mengimpor ${jumlahBerhasil} data barang.`
+          `✅ Berhasil mengimpor ${rows.length} data barang.`
         );
 
       } catch (err) {
@@ -3377,11 +3240,13 @@ function renderLaporanTables() {
                     ? `<span style="color:#777;">
                          Akun aktif
                        </span>`
+                    : u.aktif === false
+                    ? `<span style="color:#777;">Akses nonaktif</span>`
                     : `
                       <button
                         class="btn btn-danger btn-sm"
                         onclick="hapusKaryawan('${escapeHtml(u.id)}')">
-                        Hapus Akses
+                        Nonaktifkan Akses
                       </button>
                     `
                 }
@@ -3434,6 +3299,7 @@ function renderLaporanTables() {
 
 
       let secondaryApp = null;
+      let createdAuthUser = null;
 
 
       try {
@@ -3468,6 +3334,7 @@ function renderLaporanTables() {
               email,
               password
             );
+        createdAuthUser = res.user;
 
 
 await db
@@ -3484,6 +3351,7 @@ await db
 
 
         await secondaryAuth.signOut();
+        createdAuthUser = null;
 
 
         alert(
@@ -3499,12 +3367,13 @@ await db
       } catch (err) {
         console.error(err);
 
-        /*
-          Jika akun Auth berhasil dibuat tetapi
-          penulisan profil Firestore gagal, akun Auth
-          tetap ada. Ini perlu diperiksa melalui Firebase
-          Console sebelum mencoba email yang sama lagi.
-        */
+        if (createdAuthUser) {
+          try {
+            await createdAuthUser.delete();
+          } catch (cleanupError) {
+            console.error("Gagal membersihkan akun Auth yang belum memiliki profil:", cleanupError);
+          }
+        }
 
         alert(
           "❌ Gagal mendaftarkan karyawan:\n" +
@@ -3547,29 +3416,19 @@ await db
 
 
       if (!confirm(
-        `Hapus akses Firestore untuk "${nama}"?`
+        `Nonaktifkan akses Firebase untuk "${nama}"?`
       )) {
         return;
       }
 
 
       try {
-        /*
-          Tahap saat ini menghapus profil/akses
-          dari koleksi Firestore "pengguna".
-
-          Penghapusan akun Firebase Authentication
-          membutuhkan Admin SDK / Cloud Function.
-        */
-
-        await db
-          .collection("pengguna")
-          .doc(id)
-          .delete();
+        const deactivate = functions.httpsCallable("deactivateEmployee");
+        await deactivate({ uid: id });
 
 
         alert(
-          "✅ Akses pengguna telah dihapus dari Firestore."
+          "✅ Akun dan akses pengguna telah dinonaktifkan."
         );
 
       } catch (err) {
@@ -3706,6 +3565,7 @@ auth.onAuthStateChanged(async (user) => {
     currentUser = null;
     authFlowUid = null;
     profileRequestUid = null;
+    pendingSaleId = null;
 
     hentikanFirestoreListeners();
 
