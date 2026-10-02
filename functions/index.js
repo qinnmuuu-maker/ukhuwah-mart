@@ -19,7 +19,10 @@ function saleResponse(sale) {
   };
 }
 
-exports.completeSale = onCall({ region: REGION }, async (request) => {
+exports.completeSale = onCall({
+  region: REGION,
+  serviceAccount: "ukhuwah-mart-functions@ukhuwah-mart.iam.gserviceaccount.com"
+}, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) {
     throw new HttpsError("unauthenticated", "Silakan login kembali.");
