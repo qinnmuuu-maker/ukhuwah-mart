@@ -109,6 +109,8 @@ h1 { margin: 0; font-size: 22px; letter-spacing: -.7px; }
 .printer-settings select { width: 100%; height: 29px; margin-top: 5px; padding: 0 5px; border: 1px solid #e8ece8; border-radius: 5px; color: #57645c; background: white; font-size: 9px; }
 .management { padding: 32px 35px; }
 .management-heading { align-items: center; }
+.management-actions { display: flex; align-items: center; gap: 8px; }
+.import-help { margin: 10px 0 0; color: #8a968e; font-size: 10px; }
 .button-primary, .button-secondary { min-height: 38px; padding: 0 14px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 0; border-radius: 7px; color: #fff; background: var(--green); font-size: 11px; font-weight: 600; }
 .button-primary span { font-size: 16px; }
 .button-secondary { border: 1px solid #e2e8e3; color: #5b6a61; background: #fff; }
@@ -147,6 +149,51 @@ td strong { color: #35443a; font-size: 11px; }
 .product-modal { width: min(100%, 520px); }
 .modal-actions { margin-top: 22px; display: flex; justify-content: flex-end; gap: 9px; }
 .form-error { margin: -3px 0 0; color: #ac564e; font-size: 10px; }
+.auth-screen { min-height: 100vh; padding: 20px; display: grid; place-items: center; background: #f3f6f2; }
+.auth-card { width: min(100%, 430px); }
+.auth-card > .brand-mark { margin-bottom: 18px; }
+.auth-card h2 { margin-bottom: 10px; }
+.muted-copy { color: #87948c; font-size: 10px; line-height: 1.6; }
+.auth-submit { width: 100%; margin: 3px 0 14px; }
+.logout-button { width: 100%; margin-top: 13px; padding: 0; border: 0; color: #56675c; background: transparent; text-align: left; font-size: 10px; }
+.discount-control { margin-top: 12px; display: grid; grid-template-columns: 1fr 82px; align-items: end; gap: 8px; }
+.discount-control label, .filter-bar label { color: #929d96; font-size: 9px; }
+.discount-control select, .discount-control input, .filter-bar input { width: 100%; height: 32px; margin-top: 5px; padding: 0 7px; border: 1px solid #e8ece8; border-radius: 5px; color: #57645c; background: #fff; font-size: 10px; }
+.filter-bar { margin: 21px 0 16px; display: flex; align-items: end; gap: 10px; }
+.filter-bar label { width: 175px; }
+.filter-bar .button-primary { min-height: 32px; }
+.clickable-row { cursor: pointer; }
+.clickable-row:hover { background: #fafcf9; }
+.sale-detail { min-width: 360px; padding: 6px 2px; color: #68766e; }
+.sale-detail > strong { display: block; margin-bottom: 8px; color: #35443a; }
+.sale-detail > div { padding: 5px 0; display: flex; justify-content: space-between; gap: 18px; border-top: 1px solid #eef0ee; }
+.metric-grid { margin: 18px 0 25px; display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; }
+.metric-card { min-height: 83px; padding: 17px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid #e8ece8; border-radius: 8px; background: #fff; }
+.metric-card span { color: #89958d; font-size: 10px; }
+.metric-card strong { color: #286448; font-size: 17px; }
+.report-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 17px; }
+.report-columns h3 { color: #394a3e; font-size: 13px; }
+.category-panel, .backup-card { margin-top: 32px; padding-top: 23px; border-top: 1px solid #e8ece8; }
+.category-panel .management-heading { margin-bottom: 14px; }
+.category-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.category-chip { padding: 6px 8px 6px 11px; display: flex; align-items: center; gap: 8px; border: 1px solid #e7ece8; border-radius: 20px; background: #fff; color: #59675e; font-size: 10px; }
+.category-chip button { padding: 3px 5px; border: 0; border-radius: 4px; color: #41644e; background: #eff5f0; font-size: 9px; }
+.category-chip button:last-child:not(:first-child) { color: #a45c52; background: #fbf1ef; }
+.settings-layout > .management-heading:not(:first-child) { margin-top: 30px; }
+.settings-card { max-width: 600px; margin-top: 18px; padding: 22px; border: 1px solid #e8ece8; border-radius: 8px; background: #fff; }
+.settings-card .button-primary { margin-top: 2px; }
+.backup-card { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.backup-card h2 { margin: 0 0 5px; font-size: 16px; }
+.backup-card p { margin: 0; color: #87948c; font-size: 10px; }
+.backup-actions { display: flex; gap: 8px; }
+.danger-button { color: #a45c52; }
+@media (max-width: 900px) {
+  body { min-width: 700px; }
+  .sidebar { width: 170px; flex-basis: 170px; padding-right: 10px; padding-left: 10px; }
+  .topbar { padding: 0 20px; }
+  .report-columns { grid-template-columns: 1fr; }
+  .backup-card { align-items: flex-start; flex-direction: column; }
+}
 @media (max-width: 1180px) {
   .sidebar { width: 205px; flex-basis: 205px; }
   .pos-layout { grid-template-columns: minmax(370px, 1fr) 335px; }
